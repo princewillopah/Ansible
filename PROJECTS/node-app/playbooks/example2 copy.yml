@@ -1,0 +1,61 @@
+---
+- name: Install Node.js and npm
+  hosts: web  # Replace with the target host or group
+  become: yes
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Install Node.js and npm
+      apt:
+        pkg:
+        - nodejs
+        - npm
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    # - name: Install Node.js and npm
+    #   apt:
+    #     name: "{{ item }}"
+    #     state: present
+    #   loop:
+    #     - nodejs
+    #     - npm
+    #   when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Verify Node.js installation
+      command: node --version
+      register: node_version
+      changed_when: false
+      failed_when: "'v12' not in node_version.stdout"  # Adjust this to the desired Node.js version
+
+    - name: Verify npm installation
+      command: npm --version
+      register: npm_version
+      changed_when: false
+      failed_when: npm_version.failed  # Fail if the 'npm --version' command fails
+
+
+    - name: Display Node.js and npm versions
+      debug:
+        msg: "Node.js version is {{ node_version.stdout }} and npm version is {{ npm_version.stdout }}"
+
+
+
+
+
+PLAY TO COPY THE packed nodejs app from a location in the host seerver to the remote server. the name of the new tar file is also specified in the remote server. it does not hav to be the same
+    # - name: Copy Node.js archive to the remote server
+    #   copy:
+    #     src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-express-app-1.0.0.tgz
+    #     dest: /home/ubuntu/my-nodejs-app.tgz
+    #   become: yes
+
+PLAY TO to unarchive the tar file on the remote server. this will save it in the location specified in a oackage folder, it will leave the original tar file
+    # - name: Unpack the Node.js files
+    #   unarchive:
+    #     src: /home/ubuntu/my-nodejs-app.tgz
+    #     dest: /home/ubuntu/
+    #     remote_src: yes

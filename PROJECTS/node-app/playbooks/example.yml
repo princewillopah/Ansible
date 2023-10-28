@@ -1,0 +1,85 @@
+---
+- name: Install Node.js and npm
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes force_apt_get=yes cache_valid_time=3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Install Node.js and npm
+      apt:
+        pkg:
+          - nodejs
+          - npm
+      when: ansible_os_family == 'Debian'
+
+- name: Deploy Nodejs App
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Ensure 'tar' and 'gzip' are installed
+      apt:
+        name:
+          - tar
+          - gzip
+      when: ansible_os_family == 'Debian'
+
+    - name: Copy Node.js archive to the remote server
+      copy:
+        src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-nodejs-app.tgz
+        dest: /home/ubuntu/my-nodejs-app.tgz
+        remote_src: yes
+
+    - name: Unpack the Node.js files
+      unarchive:
+        src: /home/ubuntu/my-nodejs-app.tgz
+        dest: /home/ubuntu/
+        remote_src: yes
+
+
+
+
+
+
+
+
+# ---
+# - name: Install Node.js and npm
+#   hosts: 51.20.44.119
+#   become: yes
+#   tasks:
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Install Node.js and npm
+#       apt:
+#         pkg:
+#         - nodejs
+#         - npm
+#       when: ansible_os_family == 'Debian'
+
+# - name: Deploy Nodejs App
+#   hosts: 51.20.44.119
+#   become: yes
+#   tasks:
+#     - name: copy nodejs zip folder from the host to slave server
+#       copy:
+#         src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app
+#         dest: /home/ubuntu/my-nodejs-app.tgz
+
+#     - name: Ensure 'tar' and 'gzip' are installed
+#       apt:
+#         name: 
+#         - tar
+#         - gzip
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Unpack the node files
+#       unarchive:
+#         src: /home/ubuntu/my-nodejs-app.tgz
+#         dest: /home/ubuntu/
+#         remote_src: yes

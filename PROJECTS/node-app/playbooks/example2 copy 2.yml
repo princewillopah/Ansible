@@ -1,0 +1,49 @@
+---
+- name: Install Node.js and npm
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+
+    - name: Install Node.js and npm
+      apt:
+        pkg:
+          - nodejs
+          - npm
+      when: ansible_os_family == 'Debian'
+
+- name: Deploy Nodejs App
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Ensure 'tar' and 'gzip' are installed
+      apt:
+        name:
+          - tar
+          - gzip
+      when: ansible_os_family == 'Debian'
+
+    - name:  Copy Node.js archive from host server to the remote server & Unpack the Node.js files
+      unarchive:
+        src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-express-app/my-express-app-1.0.0.tgz
+        dest: /home/ubuntu/
+
+    - name: Install Node.js application dependencies
+      npm:
+        path: /home/ubuntu/package
+        state: present
+      become: yes
+
+    - name: Start your Node.js application
+      command: node /home/ubuntu/package/app.js
+      async: 600  # Adjust this to how long you want the process to run asynchronously
+      poll: 0
+      become: yes
+    - name:
+      shell: ps aux | grep node
+      register: async_result  # Register the result
+    - debug: msg={{async_result.stdout_lines}}
+

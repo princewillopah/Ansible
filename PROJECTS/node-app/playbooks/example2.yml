@@ -1,0 +1,194 @@
+---
+- name: Install Node.js and npm
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+
+    - name: Install Node.js and npm
+      apt:
+        pkg:
+          - nodejs
+          - npm
+      when: ansible_os_family == 'Debian'
+
+    - name: Ensure 'tar' and 'gzip' are installed
+      apt:
+        name:
+          - tar
+          - gzip
+      when: ansible_os_family == 'Debian'
+
+- name: CREAT NEW LINUX USER FOR THE NODE APP
+  hosts: 16.170.234.161
+  become: yes
+  tasks:
+    - name: Create the 'admins' group
+      group:
+        name: developers
+
+    - name: Add the user 'princewillopah' with a bash shell, appending the group 'admins' and 'developers' to the user's groups
+      user:
+        name: princewillopah  # user:Name of the user to create, remove or modify.
+        comment: Princewill Opah
+        shell: /bin/bash  # Optionally set the user’s shell. On macOS, before Ansible 2.5, the default shell for non-system users was /usr/bin/false. Since Ansible 2.5, the default shell for non-system users on macOS is /bin/bash.
+        groups: admin,developers  #List of groups user will be added to. By default, the user is removed from all other groups. Configure append to modify this. When set to an empty string '', the user is removed from all groups except the primary group.
+        password: "{{ 'PRINCEWILL@#1980' | password_hash('sha512') }}"
+        state: present
+
+    - name: Create a 2048-bit SSH key for user princewillopah in ~princewillopah/.ssh/id_rsa
+      user:
+        name: princewillopah 
+        generate_ssh_key: yes # Whether to generate a SSH key for the user in question. This will not overwrite an existing SSH key unless used with force=yes. Choices: false ← (default) or true
+        ssh_key_bits: 2048 # Optionally specify number of bits in SSH key to create. The default value depends on ssh-keygen.
+        ssh_key_file: .ssh/id_rsa # Optionally specify the SSH key filename. If this is a relative filename then it will be relative to the user’s home directory. This parameter defaults to .ssh/id_rsa.
+      register: user_jnfo
+    - debug: msg={{user_jnfo}}
+
+
+- name: Deploy Nodejs App
+  hosts: 16.170.234.161
+  become: true
+  become_user: princewillopah #
+  vars_files:
+    - "../host_vars/my-vars" #or ./../host_vars/my-vars
+    # - ./host_vars/my_vars.yml
+  vars:
+   - location: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-express-app
+  #  - version: 1.0.0
+  #  - user_name: princewillopah
+  tasks: 
+    - name:  Copy Node.js archive from host server to the remote server & Unpack the Node.js files
+      unarchive:
+        src: "{{location}}/my-express-app-{{version}}.tgz"
+        # src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-express-app/my-express-app-1.0.0.tgz
+        dest: /home/{{user_name}}/
+      register: user_jnfo2
+    - debug: msg={{user_jnfo2}}
+
+    - name: Install Node.js application dependencies
+      npm:
+        path: /home/{{user_name}}/package
+        state: present
+      # become: yes
+
+    - name: Start your Node.js application
+      command: node /home/{{user_name}}/package/app.js
+      async: 600  # Adjust this to how long you want the process to run asynchronously
+      poll: 0
+      # become: yes
+    - name:
+      shell: ps aux | grep node
+      register: async_result  # Register the result
+    - debug: msg={{async_result.stdout_lines}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ---
+# - name: Install Node.js and npm
+#   hosts: 16.170.234.161
+#   become: yes
+#   tasks:
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Install acl package
+#       apt:
+#         name: acl  # On Debian-based systems
+#       when: ansible_os_family == 'Debian'
+      
+#     - name: Install Node.js and npm
+#       apt:
+#         pkg:
+#           - nodejs
+#           - npm
+#       when: ansible_os_family == 'Debian'
+
+# - name: Create Users and Deploy Nodejs App
+#   hosts: 16.170.234.161
+#   become: true
+#   become_user: root  # Use root privileges for user creation
+#   tasks:
+#     - name: Add the user 'princewillopah' with a bash shell
+#       user:
+#         name: princewillopah
+#         shell: /bin/bash
+#         groups: admins, developers
+#       become: yes
+
+#     - name: Create a 2048-bit SSH key for user princewillopah in ~princewillopah/.ssh/id_rsa
+#       user:
+#         name: princewillopah 
+#         generate_ssh_key: yes
+#         ssh_key_bits: 2048
+#         ssh_key_file: .ssh/id_rsa
+
+#     - name: Ensure 'tar' and 'gzip' are installed
+#       apt:
+#         name:
+#           - tar
+#           - gzip
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Copy Node.js archive from host server to the remote server & Unpack the Node.js files
+#       unarchive:
+#         src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-express-app/my-express-app-1.0.0.tgz
+#         dest: /home/princewillopah/
+
+#     - name: Install Node.js application dependencies
+#       npm:
+#         path: /home/princewillopah/package
+#         state: present
+#       become: yes
+
+#     - name: Start your Node.js application
+#       command: node /home/princewillopah/package/app.js
+#       async: 600
+#       poll: 0
+#       become: yes
+
+#     - name: Check if Node.js application is running
+#       shell: ps aux | grep node
+#       register: async_result
+#     - debug: msg={{ async_result.stdout_lines }}
+
+
+
+
+
+
+
+
+
+

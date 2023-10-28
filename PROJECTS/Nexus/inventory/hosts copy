@@ -1,0 +1,2 @@
+[web]
+13.48.1.8 ansible_ssh_private_key_file=~/.ssh/disposible-sshkey ansible_user=ubuntu

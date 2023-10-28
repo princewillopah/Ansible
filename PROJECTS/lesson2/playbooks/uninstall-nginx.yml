@@ -1,0 +1,20 @@
+---
+- name: Install and Start Nginx
+  hosts: web  # Replace with the target hosts or groups
+  become: yes  # Enable privilege escalation to Be able to install packages Just like root user. You know currently this is just an Ubuntu user
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+
+    - name: UnInstall Nginx
+      package:
+        name: nginx
+        state: absent
+
+    - name: Stop Nginx service
+      service:
+        name: nginx
+        state: stopped
+   

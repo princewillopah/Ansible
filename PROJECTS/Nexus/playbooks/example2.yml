@@ -1,0 +1,159 @@
+---
+- name: Install Java & net tools
+  hosts: web  
+  become: yes 
+
+  tasks:
+    - name: Update package repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Install Java version 8
+      apt: name=openjdk-8-jre-headless
+
+    - name: Install Net Tools
+      apt: name=net-tools
+
+- name: Downloand and unpack nexus installer
+  hosts: web 
+  become: yes  
+  tasks:
+    - name: Check if the folder "/opt/nexus" exists
+      ansible.builtin.stat:
+        path: /opt/nexus  # Specify the path to check for the existence of the /opt/nexus folder
+      register: folder_check  # Store the result of the folder existence check in 'folder_check'
+
+    - name: Download Nexus Repository Manager
+      get_url:
+        url: https://download.sonatype.com/nexus/3/latest-unix.tar.gz  #download the file from their repo
+        dest: /opt/ # put the downloaded zip in /opt/ dir
+      register: dowloaded_nexus_installer  # save the resulf info in a variable "dowloaded_nexus_installer" to be used in another task
+    - debug: msg={{dowloaded_nexus_installer}}  # to be removed later, it is just for showing the output of the variable dowloaded_nexus_installer
+   
+    - name: Extract Nexus Repository Manager
+      ansible.builtin.unarchive:
+        src: "{{dowloaded_nexus_installer.dest}}"   #it is in path "/opt/nexus-3.61.0-02-unix.tar.gz"
+        dest: /opt/ # extract /opt/nexus-3.61.0-02-unix.tar.gz and still save it in /opt
+        remote_src: yes # speisify that the original /opt/nexus-3.61.0-02-unix.tar.gz" should be save in the remote server hat is, it should not be deleted after the extraction
+      when: not folder_check.stat.exists  #the condition will be executed, which is when the /opt/nexus folder does not exist (not folder_check.stat.exists).
+
+    - name: Find the extracted nexus folder in same /opt directory
+      find:
+        paths: /opt        # Specifies the directory where the search will be performed
+        patterns: "nexus-*" # Defines the pattern to search for, which is files or directories starting with "nexus-"
+        file_type: directory  # Indicates that we are searching for directories, not files
+      register: result_of_search  # Stores the search results in the variable "result_of_search"
+
+    - debug: msg="{{ result_of_search }}"  # For debugging purposes, this displays the results of the find operation
+
+    - name: Rename nexus-xxx folder to nexus 
+      ansible.builtin.command: mv {{result_of_search.files[0].path}} /opt/nexus # # This task is responsible for renaming the extracted nexus-xxx folder to nexus. 
+      when: not folder_check.stat.exists  #the condition will be executed, which is when the /opt/nexus folder does not exist (not folder_check.stat.exists).
+
+
+- name: Set up Nexus user and change ownership
+  hosts: web
+  become: yes  # Run tasks with elevated privileges
+
+  tasks:
+    - name: Create the Nexus group
+      ansible.builtin.group:
+        name: nexus  #create the group with name "nexus"
+        state: present  # Ensure that the group exists. If not, create the group.
+
+    - name: Create the Nexus user
+      ansible.builtin.user:
+        name: nexus  # Set the username to 'nexus'
+        group: nexus  # Assign the user to the 'nexus' group
+        createhome: yes  # Create a home directory for the 'nexus' user
+
+    - name: Set ownership of Nexus files to nexus user and group
+      ansible.builtin.file:
+        path: /opt/nexus  # Specify the directory path
+        state: directory  # Ensure it's a directory
+        owner: nexus  # Set the owner to 'nexus' user
+        group: nexus  # Set the group to 'nexus'
+        recurse: yes  # Apply changes recursively (for all files and subdirectories)
+
+    - name: Set ownership of sonatype-work files to nexus user and group
+      ansible.builtin.file:
+        path: /opt/sonatype-work  # Specify the directory path
+        state: directory  # Ensure it's a directory
+        owner: nexus  # Set the owner to 'nexus' user
+        group: nexus  # Set the group to 'nexus'
+        recurse: yes  # Apply changes recursively (for all files and subdirectories)
+
+- name: Add sudoers configuration for Nexus start command
+  hosts: web
+  become: yes
+  tasks:
+    - name: Append sudoers configuration for Nexus start command
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers  # Path to the sudoers file
+        regexp: '^nexus ALL='  # Regular expression to match an existing line
+        # line: 'nexus ALL=(ALL) NOPASSWD: /opt/nexus/bin/nexus start'  # Line to append to the file
+        line: 'nexus ALL=(ALL) NOPASSWD: ALL'  # Line to append to the file
+        validate: 'visudo -cf %s'  # Validate the sudoers file syntax
+      notify: Reload sudoers
+
+  handlers:
+    - name: Reload sudoers
+      ansible.builtin.command: visudo -c
+
+- name: Configure Nexus as a Systemd service
+  hosts: web
+  become: yes
+  become_user: nexus
+
+  tasks:
+    - name: Edit Nexus run configuration
+      ansible.builtin.lineinfile:
+        path: /opt/nexus/bin/nexus.rc
+        regexp: '^run_as_user='  # Match the line starting with 'run_as_user='
+        line: 'run_as_user="nexus"'  # Replace the line with 'run_as_user="nexus"'
+        state: present  # Ensure the line is present
+
+    - name: Start Nexus service asynchronously
+      ansible.builtin.command: /opt/nexus/bin/nexus start
+      async: 300  # Set the maximum runtime for the command
+      poll: 0  # Start the command asynchronously
+      register: job
+
+    - name: Wait for Nexus service to start
+      async_status:
+        jid: "{{ job.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 300  # Set the number of retries
+      delay: 10  # Set the delay between retries
+
+    - name: Display the result of Nexus service start
+      debug:
+        var: job_result
+
+- name: Check Nexus Service and netstat
+  hosts: web
+  gather_facts: true  # Ensure that facts are gathered
+  become: yes
+  become_user: nexus
+
+  tasks:
+    - name: Check if Nexus Service is running
+      ansible.builtin.service:
+        name: nexus
+      register: nexus_service
+
+    - name: Check if netstat command is available
+      ansible.builtin.command: which netstat
+      register: netstat_command
+
+    - name: Display Nexus Service status
+      ansible.builtin.debug:
+        var: nexus_service
+      when: nexus_service.status == 'running'
+
+    - name: Display netstat command location
+      ansible.builtin.debug:
+        var: netstat_command
+
+
+

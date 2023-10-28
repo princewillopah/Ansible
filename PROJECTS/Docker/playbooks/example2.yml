@@ -1,0 +1,327 @@
+# ---
+# - name: Install Docker
+#   hosts: web  # Replace with the target hosts or groups
+#   become: yes 
+#   gather_facts: false
+#   tasks:
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+#       when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+#     - name: Install Docker
+#       apt:
+#         name: docker.io
+#         state: present
+#       when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+#     - name: Start the Docker service
+#       service:
+#         name: docker
+#         state: started
+#     - name: Add user to the Docker group
+#       user:
+#         name: ubuntu
+#         groups: docker
+#         append: yes
+#     - name: Pull Nginx Docker image
+#       command: docker image pull nginx:latest
+#     - name: Run Nginx Container
+#       command: docker container run -d -p 8080:80 --name my_nginx nginx:latest
+
+
+
+---
+- name: Install Docker
+  hosts: web  # Replace with the target hosts or groups
+  become: yes 
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+    
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Install pip for Python 3      
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install Docker python module for docker commands
+      python3-pip:
+        name: 
+          - docker
+          - docker-compose
+          - pip     
+
+
+- name: Install Docker Compose 
+  hosts: web  # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Download Docker Compose binary
+      get_url:
+        # url: https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-{{lookup('pipe','uname -m')}}
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: +x
+
+    - name: Verify Docker Compose version
+      command: docker-compose --version
+      register: compose_version_output
+      changed_when: false
+      failed_when: false
+
+    - name: Install Docker Compose if not installed
+      command: echo
+      args:
+        creates: /usr/local/bin/docker-compose
+      changed_when: false
+
+    - name: Add Docker Compose to PATH
+      lineinfile:
+        dest: ~/.bashrc
+        line: 'export PATH=\$PATH:/usr/local/bin'
+        state: present
+      when: "'No such file or directory' in compose_version_output.stdout"
+
+    - name: Reload the shell
+      command: source ~/.bashrc
+      when: "'No such file or directory' in compose_version_output.stdout"
+
+- name: Start the Docker service || ensure the "docker" group exists 
+  hosts: web  # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Start the Docker service
+      service:
+        name: docker
+        state: started
+    
+    - name: Create the 'docker' group if it doesn't exist
+      group:
+        name: docker
+        state: present
+
+- name: Add user to the Docker group 
+  hosts: web  # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Add user to the Docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+    - name: Reconnect to server session
+      meta: reset_connection
+
+
+- name: Pull Nginx Docker image
+  hosts: web  # Replace with the target hosts or groups
+  gather_facts: false
+  vars:
+    container_name: my_nginx  # Define a variable for the container name
+  tasks:
+    - name: Pull Nginx Docker image
+      command: docker image pull nginx:latest
+
+    - name: Check if the container exists and register container_info
+      docker_container_info:
+        name: "{{ container_name }}"
+      register: container_info
+      ignore_errors: yes
+
+    - name: Run Nginx Container (or rename if it exists)
+      docker_container:
+        name: "{{ container_name }}"
+        image: nginx:latest
+        state: started
+        ports:
+          - "8080:80"
+      when: container_info is failed
+
+    - name: Rename the container (if it exists)
+      command: docker rename {{ container_name }} {{ container_name }}_{{ ansible_date_time.epoch }}
+      when: container_info is succeeded and container_name in container_info
+
+    # - name: Run Nginx Container (or rename if it exists)
+    #   shell: docker run -d -p 8080:80 --name my_nginx{{ ansible_date_time.epoch }} nginx:latest
+    #   when: container_info is failed
+    #   ignore_errors: yes
+
+    # - name: Rename the container (if it already exists)
+    #   docker_container:
+    #     name: my_nginx
+    #     new_name: my_nginx_{{ ansible_date_time.epoch }}
+    #   when: container_info is succeeded
+    # - name: Run Nginx Container
+    #   command: docker container run -d -p 8080:80 --name my_nginx nginx:latest
+
+
+
+
+# -------------------------------------------------------------------------------------------------------------
+
+
+# ---
+# - name: Install and configure Docker
+#   hosts: web
+#   become: yes
+
+#   tasks:
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Install Docker
+#       apt:
+#         name: docker.io
+#         state: present
+#       when: ansible_os_family == 'Debian'
+
+#     - name: Start the Docker service
+#       service:
+#         name: docker
+#         state: started
+
+# - name: Add user to Docker group
+#   hosts: web
+#   become: yes
+
+#   tasks:
+#     - name: Create the 'docker' group if it doesn't exist
+#       group:
+#         name: docker
+#         state: present
+
+#     - name: Add user to the Docker group
+#       user:
+#         name: ubuntu
+#         groups: docker
+#         append: yes
+
+# - name: Pull Nginx Docker image
+#   hosts: web
+
+#   tasks:
+#     - name: Pull Nginx Docker image
+#       command: docker image pull nginx:latest
+
+#     - name: Run Nginx Container
+#       command: docker container run -d -p 8080:80 --name my_nginx nginx:latest
+
+
+
+
+
+
+
+
+## =======================================================================================================================
+## Ansible playbook to uninstall Docker, remove the user 'ubuntu' from the Docker group, and then remove the Docker group.
+## =======================================================================================================================
+
+# ---
+# - name: Uninstall Docker and Cleanup
+#   hosts: web  # Replace with the target hosts or groups
+#   become: yes  # Enable privilege escalation
+
+#   tasks:
+#     - name: Stop Docker service
+#       # Use the service module to stop the Docker service.
+#       service:
+#         name: docker
+#         state: stopped
+#       ignore_errors: yes  # Ignore errors if Docker is not installed
+
+#     - name: Uninstall Docker
+#       # Use the apt module to remove Docker.
+#       apt:
+#         name: docker.io
+#         state: absent
+#       when: ansible_os_family == 'Debian'  # Only for Debian-based systems
+
+#     - name: Purge Docker configuration
+#       apt:
+#         name: docker.io
+#         state: purged
+#       when: ansible_os_family == 'Debian'  # Only for Debian-based systems
+
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+
+#     - name: Remove user from Docker group
+#       # Use the user module to remove the user 'ubuntu' from the 'docker' group.
+#       user:
+#         name: ubuntu
+#         groups: docker
+#         state: absent
+#       # when: "'docker' in user.groups"
+
+#     - name: Remove Docker group
+#       # Use the group module to remove the 'docker' group.
+#       group:
+#         name: docker
+#         state: absent
+#       when: "'docker' in group_names"  # Check if the 'docker' group exists
+
+
+
+# ---
+# - name: Uninstall Docker and Cleanup
+#   hosts: web  # Replace with the target hosts or groups
+#   become: yes  # Enable privilege escalation
+
+#   tasks:
+#     - name: Stop Docker service
+#       # Use the service module to stop the Docker service.
+#       service:
+#         name: docker
+#         state: stopped
+#       ignore_errors: yes  # Ignore errors if Docker is not installed
+
+#     - name: Uninstall Docker
+#       # Use the apt module to remove Docker.
+#       apt:
+#         name: docker.io
+#         state: absent
+#       when: ansible_os_family == 'Debian'  # Only for Debian-based systems
+
+#     - name: Remove Docker images and containers
+#       command: docker rm -f $(docker ps -a -q)
+#       become: yes
+#       ignore_errors: yes
+
+#     - name: Purge Docker configuration
+#       apt:
+#         name: docker.io
+#         state: purged
+#       when: ansible_os_family == 'Debian'  # Only for Debian-based systems
+
+#     - name: Update package cache
+#       apt:
+#         update_cache: yes
+
+#     - name: Remove user from Docker group
+#       # Use the user module to remove the user 'ubuntu' from the 'docker' group.
+#       user:
+#         name: ubuntu
+#         groups: docker
+#         state: absent
+#       # when: "'docker' in user.groups"
+
+#     - name: Remove Docker group
+#       # Use the group module to remove the 'docker' group.
+#       group:
+#         name: docker
+#         state: absent
+#       when: "'docker' in group_names"  # Check if the 'docker' group exists
+

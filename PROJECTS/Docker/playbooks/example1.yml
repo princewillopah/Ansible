@@ -482,46 +482,87 @@
   tasks:
     - name: Add user to the Docker group
       user:
-        name: ubuntu
+        name: princewillopah
         groups: docker
         append: yes
     - name: Reconnect to server session
       meta: reset_connection
 
-- name: Add user to the Docker group 
+- name: Setup for nodejs 
   hosts: web  # Replace with the target hosts or groups
-  become: yes 
+  become: yes
+  # become_user: yes 
   gather_facts: false
   tasks:
     - name: Create a directory for the React app
       file:
-        path: /opt/react-app
+        path: /home/princewillopah/react-app
         state: directory
 
-    - name: Copy the React app source code
-      copy:
-        src: /home/princewillopah/DevOps-World/Docker/Test-projects/react-hello-world/my-app
-        dest: /opt/react-app
-
-    - name: Change working directory
-      command: cd /opt/react-app
-
-    - name: Install app dependencies
-      command: npm install
-
+    - name: Create a tarball of the Node.js app
+      unarchive:
+        src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/Docker/my-app/my-app-0.1.0.tgz # Replace with the path to your Node.js app
+        dest: /home/princewillopah/
+      register: unpack_output
+    # - name: Build Docker image2
+      # command: mv /home/princewillopah/react-app/package/* /home/princewillopah/react-app/  
     - name: Build Docker image
-      docker_image:
-        name: my-react-app
-        path: /opt/react-app
-        state: present
+      command: docker build -t my-react-app /home/princewillopah/package/
+      register: docker_build_output
+    - debug:
+        var: docker_build_output.stdout_lines
+    - name: Stop the existing container
+      command: docker stop node-app-container
+      ignore_errors: yes  # Ignore errors if the container is not running
 
-    - name: Run Docker container
-      docker_container:
-        name: react-app-container
-        image: my-react-app
-        state: started
-        ports:
-          - "3000:3000"
+    - name: Remove the existing container
+      command: docker rm node-app-container
+      ignore_errors: yes  # Ignore errors if the container doesn't exist
+
+    - name: Run Docker container with the desired name
+      command: docker run -d -p 3000:3000 --name node-app-container my-react-app
+
+
+
+
+
+
+
+
+
+
+
+
+      # changed_when: false  # Mark this task as non-changing
+
+    # - name: Copy the tarball to the remote server
+    #   copy:
+    #     src: "{{ pack_output.stdout_lines[0] }}"
+    #     dest: /home/princewillopah/my-node-app.tgz  # Replace with the destination on the remote server
+
+
+
+
+
+#     - name: Change working directory
+#       command: cd /opt/react-app
+
+#     - name: Install app dependencies
+#       command: npm install
+
+#     - name: Build Docker image
+#       docker_image:
+#         name: my-react-app
+#         path: /opt/react-app
+#         state: present
+
+#     - name: Run Docker container
+#       docker_container:
+#         name: react-app-container
+#         image: my-react-app
+#         state: started
+#         ports:
+#           - "3000:3000"
 
 # - name: Pull Nginx Docker image
 #   hosts: web  # Replace with the target hosts or groups

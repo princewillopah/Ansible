@@ -1,0 +1,148 @@
+---
+- name: Wait for port 22 to become open on the host, and contain "OpenSSH
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Wait for port 22
+      wait_for:  # used for waiting for a certain condition to be met on a remote server before continuing with the playbook execution.
+        port: 22  #  It specifies that the task should wait for the SSH service, which typically runs on port 22, to become available.
+        host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}' # This dynamically determines the host to check for SSH availability. It first checks the ansible_ssh_host variable, and if that's not defined, it uses ansible_host. If neither is defined, it uses inventory_hostname, which represents the name of the host as defined in the Ansible inventory.
+        search_regex: OpenSSH  # This specifies a regular expression to search for in the banner text sent by the SSH server. In this case, it looks for the string "OpenSSH." This is often used to verify that the SSH service on the remote host is indeed OpenSSH, as there are other SSH server implementations
+        delay: 60  #   It sets a delay of 60 seconds before the wait condition is first checked -- don't start checking for 60 seconds # It sets a delay of 10 seconds between each check. The task will repeatedly check the specified conditions every 10 seconds until the conditions are met or until the maximum wait time is reached
+        timeout: 300  #Sleep for 300 seconds and continue with play # This parameter sets the maximum amount of time (in seconds) that Ansible will wait for the conditions to be met. In this case, Ansible will wait for up to 300 seconds (5 minutes) for the SSH service to become available and for the banner text to contain "OpenSSH."
+      vars: # This section specifies a variable to be defined and used in this task # This is an optional section that allows you to set variables for the task. In this case, it sets ansible_connection to "local."
+        ansible_connection: local  #This means that this task is checking the remote host's SSH service, but it doesn't actually establish an SSH connection. Instead, it's executed on the control machine (the machine running the Ansible playbook) to check the remote host's SSH service status
+
+
+- name: Install Docker
+  hosts: all # Replace with the target hosts or groups
+  become: yes 
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+    
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+    - name: Install pip for Python 3      
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install Docker python module for docker commands
+      pip:
+        name: 
+          - docker
+          - docker-compose    
+
+
+- name: Install Docker Compose 
+  hosts: all # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Download Docker Compose binary
+      get_url:
+        # url: https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-{{lookup('pipe','uname -m')}}
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: +x
+
+    - name: Verify Docker Compose version
+      command: docker-compose --version
+      register: compose_version_output
+      changed_when: false
+      failed_when: false
+
+    - name: Install Docker Compose if not installed
+      command: echo
+      args:
+        creates: /usr/local/bin/docker-compose
+      changed_when: false
+
+    - name: Add Docker Compose to PATH
+      lineinfile:
+        dest: ~/.bashrc
+        line: 'export PATH=\$PATH:/usr/local/bin'
+        state: present
+      when: "'No such file or directory' in compose_version_output.stdout"
+
+    - name: Reload the shell
+      command: source ~/.bashrc
+      when: "'No such file or directory' in compose_version_output.stdout"
+
+- name: Start the Docker service || ensure the "docker" group exists 
+  hosts: all # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Start the Docker service
+      service:
+        name: docker
+        state: started
+    
+    - name: Create the 'docker' group if it doesn't exist
+      group:
+        name: docker
+        state: present
+
+- name: Add user to the Docker group 
+  hosts: all # Replace with the target hosts or groups
+  become: yes 
+  gather_facts: false
+  tasks:
+    - name: Add user to the Docker group
+      user:
+        name: princewillopah
+        groups: docker
+        append: yes
+    - name: Reconnect to server session
+      meta: reset_connection
+
+- name: Setup for nodejs 
+  hosts: all # Replace with the target hosts or groups
+  become: yes
+  # become_user: yes 
+  gather_facts: false
+  tasks:
+    - name: Create a directory for the React app
+      file:
+        path: /home/princewillopah/react-app
+        state: directory
+
+    - name: Create a tarball of the Node.js app
+      unarchive:
+        src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/Docker/my-app/my-app-0.1.0.tgz # Replace with the path to your Node.js app
+        dest: /home/princewillopah/
+      register: unpack_output
+    # - name: Build Docker image2
+      # command: mv /home/princewillopah/react-app/package/* /home/princewillopah/react-app/  
+    - name: Build Docker image
+      command: docker build -t my-react-app /home/princewillopah/package/
+      register: docker_build_output
+    - debug:
+        var: docker_build_output.stdout_lines
+    - name: Stop the existing container
+      command: docker stop node-app-container
+      ignore_errors: yes  # Ignore errors if the container is not running
+
+    - name: Remove the existing container
+      command: docker rm node-app-container
+      ignore_errors: yes  # Ignore errors if the container doesn't exist
+
+    - name: Run Docker container with the desired name
+      command: docker run -d -p 3000:3000 --name node-app-container my-react-app

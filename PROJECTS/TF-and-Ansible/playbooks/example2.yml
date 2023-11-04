@@ -1,0 +1,23 @@
+---
+- name: Install and Start Nginx
+  hosts: web  # Replace with the target hosts or groups
+  become: yes  # Enable privilege escalation to Be able to install packages Just like root user. You know currently this is just an Ubuntu user
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Install Nginx
+      package:
+        name: nginx
+        state: present
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS
+
+    - name: Start Nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      when: ansible_os_family == 'Debian'  # Use appropriate condition for your OS

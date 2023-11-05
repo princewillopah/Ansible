@@ -1,0 +1,17 @@
+---
+plugin: aws_ec2
+regions: 
+  - eu-north-1
+
+filters:
+  tag:Name: Dev_Server*
+  # tag:Name: Prod_server*
+# keyed_groups:
+#   - key: tags
+#     separator: ''
+# hostnames:
+#   - instance-id
+#   - tag:Name
+# compose:
+#   ansible_host: public_ip
+

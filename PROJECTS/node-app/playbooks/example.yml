@@ -29,7 +29,7 @@
     - name: Copy Node.js archive to the remote server
       copy:
         src: /home/princewillopah/DevOps-World/Ansible/PROJECTS/node-app/my-nodejs-app.tgz
-        dest: /home/ubuntu/my-nodejs-app.tgz
+        dest: /home/ubuntu/my-nodejs-app.tgz 
         remote_src: yes
 
     - name: Unpack the Node.js files

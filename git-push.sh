@@ -5,7 +5,7 @@
 read -p "Enter commit message: " COMMIT_MESSAGE
 
 # Set the commit message
-COMMIT_MESSAGE= COMMIT_MESSAGE+ "_$(date +%d-%m-%Y_%H-%M-%S)"
+COMMIT_MESSAGE="$COMMIT_MESSAGE_$(date +%d-%m-%Y_%H-%M-%S)"
 
 # Change to your local repository directory
 # cd /path/to/your/local/repository

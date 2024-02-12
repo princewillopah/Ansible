@@ -1,0 +1,66 @@
+---
+- name: Install Maven and Docker on remote server
+  hosts: jenkins-slave
+  become: true
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+
+    - name: Install OpenJDK 17
+      apt:
+        name: openjdk-17-jdk
+        state: present
+      when: ansible_os_family == 'Debian'
+
+    - name: Download Maven
+      get_url:
+        url: "https://dlcdn.apache.org/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz"
+        dest: "/tmp/apache-maven-3.9.6-bin.tar.gz"
+
+    - name: Extract Maven archive
+      ansible.builtin.unarchive:
+        src: "/tmp/apache-maven-3.9.6-bin.tar.gz"
+        dest: "/opt/"
+        remote_src: yes
+        creates: "/opt/apache-maven-3.9.6"
+
+    - name: Create symbolic link
+      ansible.builtin.file:
+        src: "/opt/apache-maven-3.9.6"
+        dest: "/opt/maven"
+        state: link
+
+    - name: Set Maven environment variables
+      ansible.builtin.lineinfile:
+        path: "/etc/profile.d/maven.sh"
+        line: 'export PATH=$PATH:/opt/maven/bin'
+        create: yes
+
+    - name: Reload shell environment
+      ansible.builtin.shell:
+        cmd: ". /etc/profile.d/maven.sh"
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+
+    - name: Enable Docker service on boot
+      service:
+        name: docker
+        enabled: yes
+

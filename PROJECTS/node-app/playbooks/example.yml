@@ -15,7 +15,7 @@
           - npm
       when: ansible_os_family == 'Debian'
 
-- name: Deploy Nodejs App
+- name: Deploy Node-js App
   hosts: 16.170.234.161
   become: yes
   tasks:

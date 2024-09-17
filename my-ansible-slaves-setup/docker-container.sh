@@ -1,4 +1,6 @@
 #!/bin/bash
+
+sleep 60
 sudo apt update -y && sudo apt install -y docker.io  #update all packages and then install the docker . the -y means yes to all questions during installation for confirming the input
 sudo systemctl start docker  # start the docker 
 sudo usermod -aG docker ubuntu # we need to execute docker command without using "sudo" command. by this we need to add the user(ubuntu) to the docker group(docker)

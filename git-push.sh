@@ -2,7 +2,7 @@
 
 
 # Ask the user for the project name (root folder name)
-read -p "Kindly Enter Commit Message Here: " COMMIT_MESSAGE
+read -p "Kindly Enter Commit Message Here!: " COMMIT_MESSAGE
 
 # Set the commit message
 COMMIT_MESSAGE="$COMMIT_MESSAGE_$(date +%d-%m-%Y_%H-%M-%S)"

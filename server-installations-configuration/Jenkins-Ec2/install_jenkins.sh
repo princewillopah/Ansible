@@ -9,5 +9,5 @@ sudo apt install git -y
 mkdir Ansible && cd Ansible  ## make this "Ansible" dirctory in the newly provisioned Jenkins Instance
 pwd
 git clone https://github.com/princewillopah/Ansible.git
-cd Ansible/ANSIBLE   # this is where DevSecOps.yml is located.
+cd Ansible/server-installations-configuration  # this is where DevSecOps.yml is located.
 ansible-playbook -i localhost DevSecOps.yml

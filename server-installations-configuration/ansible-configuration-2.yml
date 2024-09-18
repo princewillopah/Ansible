@@ -200,13 +200,4 @@
         state: started
         restart_policy: unless-stopped
 
-    # Add alias to .bashrc
-    - name: Add alias to bashrc
-      become: yes
-      lineinfile:
-        path: "/home/ubuntu/.bashrc"
-        line: 'alias cl="clear"'
-        create: yes
-        owner: ubuntu
-        group: ubuntu
-        mode: '0644'
+

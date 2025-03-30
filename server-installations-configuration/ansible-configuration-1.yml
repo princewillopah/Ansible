@@ -171,7 +171,7 @@
       ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
-        filename: docker
+        filename: dockerta
 
     - name: Update apt and install docker-ce
       ansible.builtin.apt:
